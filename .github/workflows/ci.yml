@@ -1,5 +1,10 @@
 name: ci
-on: [ push, pull_request ]
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: ["batch/**"]
+    tags: ["v*"]
 
 jobs:
   lint:
@@ -20,6 +25,13 @@ jobs:
     steps:
       - name: Clone repository
         uses: actions/checkout@v5
+
+      - name: pinned tier setup
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/batch/')
+        uses: ./.github/actions/ci-tier
+        with:
+          tier: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}
+          setup-script: .github/ci/setup.sh
 
       - name: Install rust
         uses: ./.github/actions/rust-toolchain
@@ -44,6 +56,13 @@ jobs:
       - name: Clone repository
         uses: actions/checkout@v5
 
+      - name: pinned tier setup
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/batch/')
+        uses: ./.github/actions/ci-tier
+        with:
+          tier: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}
+          setup-script: .github/ci/setup.sh
+
       - name: Check feature ${{ matrix.feature }}
         run: cargo check --no-default-features --features ${{ matrix.feature }}
 
@@ -53,6 +72,13 @@ jobs:
       - name: Clone repository
         uses: actions/checkout@v5
 
+      - name: pinned tier setup
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/batch/')
+        uses: ./.github/actions/ci-tier
+        with:
+          tier: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}
+          setup-script: .github/ci/setup.sh
+
       - name: Check
         run: npx --yes @taplo/cli fmt --check
 
@@ -60,6 +86,7 @@ jobs:
 
   test:
     name: test ${{ matrix.os }} rust ${{ matrix.rustc || 'stable' }} ${{ matrix.extra_desc }}
+    if: github.event_name == 'push'
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.allow_failure || false }}
     timeout-minutes: 30
@@ -134,6 +161,13 @@ jobs:
 
       - name: Clone repository
         uses: actions/checkout@v5
+
+      - name: pinned tier setup
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/batch/')
+        uses: ./.github/actions/ci-tier
+        with:
+          tier: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}
+          setup-script: .github/ci/setup.sh
 
       - name: Install rust
         uses: ./.github/actions/rust-toolchain
@@ -249,6 +283,7 @@ jobs:
 
   build:
     name: build ${{ matrix.binary || 'sccache' }} ${{ matrix.target }}
+    if: github.event_name == 'push'
     runs-on: ${{ matrix.os }}
     container: ${{ fromJson(matrix.container || '{"image":null}') }}
     timeout-minutes: 30
@@ -307,6 +342,13 @@ jobs:
     steps:
       - name: Clone repository
         uses: actions/checkout@v5
+
+      - name: pinned tier setup
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/batch/')
+        uses: ./.github/actions/ci-tier
+        with:
+          tier: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}
+          setup-script: .github/ci/setup.sh
 
       - name: Install rust
         uses: ./.github/actions/rust-toolchain
@@ -383,6 +425,7 @@ jobs:
 
   test_freebsd:
     name: test freebsd-15.0 rust stable
+    if: github.event_name == 'push'
     runs-on: ${{ matrix.job.os }}
     timeout-minutes: 70
     strategy:
@@ -392,6 +435,12 @@ jobs:
           - { os: ubuntu-22.04 }
     steps:
       - uses: actions/checkout@v5
+      - name: pinned tier setup
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/batch/')
+        uses: ./.github/actions/ci-tier
+        with:
+          tier: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}
+          setup-script: .github/ci/setup.sh
       - name: Prepare, build and test
         uses: vmactions/freebsd-vm@v1
         with:
@@ -442,6 +491,34 @@ jobs:
         uses: ./.github/actions/artifact_failure
         with:
           name: test-freebsd-15.0-stable
+
+  # Bounded quick-tier proof for pull requests: the fast static jobs above
+  # (lint, check_features, toml_format) plus unit tests on one hosted leg.
+  # The full matrix (test/build/test_freebsd) stays push-only.
+  quick-test:
+    name: quick-test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v5
+
+      - name: pinned tier setup
+        uses: ./.github/actions/ci-tier
+        with:
+          tier: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}
+          setup-script: .github/ci/setup.sh
+
+      - name: Install rust
+        uses: ./.github/actions/rust-toolchain
+        with:
+          toolchain: stable
+
+      - name: Unit tests
+        run: cargo test --locked --lib --bins
+        env:
+          CARGO_INCREMENTAL: "0"
 
   release:
     name: release

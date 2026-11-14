@@ -1,0 +1,59 @@
+# Conversion proposal only. Do not enroll before exact full bootstrap proof,
+# independent source review and the coupled signed C3 config/workflow WINDOW.
+[merge_batch.sccache]
+actions_app_id = 15368
+covers_full_proof = false
+deadline_seconds = 21600
+dependencies = [".github/actions/ci-tier/action.yml", ".github/ci/setup.sh"]
+max_members = 4
+repository = "chriscoveriesorg/sccache"
+
+[[merge_batch.sccache.workflows]]
+filename = "ci.yml"
+[merge_batch.sccache.workflows.jobs]
+build = [
+  "Clone repository",
+  "pinned tier setup",
+  "Install rust",
+  "Install s390x cross-compilation toolchain",
+  "Install rust-src for s390x-musl",
+  "fix build openssl error on s390x",
+  "Build (s390x-musl with build-std)",
+  "Build",
+  "Id",
+  "Upload artifacts",
+]
+check_features = [
+  "Clone repository",
+  "pinned tier setup",
+  "Check feature ${{ matrix.feature }}",
+]
+lint = [
+  "Clone repository",
+  "pinned tier setup",
+  "Install rust",
+  "clippy version",
+  "Check",
+]
+test = [
+  "Clone repository",
+  "pinned tier setup",
+  "Install rust",
+  "Install gcc & clang for tests",
+  "Install nvcc",
+  "`grcov` ~ install",
+  "Create config for testing",
+  "Free disk space for CUDA tests",
+  "Execute tests",
+  "Upload failure",
+  "Display coverage files",
+  "Generate coverage data (via `grcov`)",
+  "Upload coverage results (to Codecov.io)",
+]
+test_freebsd = [
+  "Clone repository",
+  "pinned tier setup",
+  "Prepare, build and test",
+  "Upload failure",
+]
+toml_format = ["Clone repository", "pinned tier setup", "Check"]
