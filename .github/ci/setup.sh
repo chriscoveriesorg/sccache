@@ -6,7 +6,9 @@ case "${1:-}" in
   *) echo 'Unknown CI tier' >&2; exit 2 ;;
 esac
 
-# GitHub-hosted runners only (public fork): every job installs its own
-# toolchain; setup only proves the tier reached a usable runner.
-test "$(nproc)" -ge 2
-echo "CIFAST_SETUP tier=$1 runner=$RUNNER_OS nproc=$(nproc)"
+# GitHub-hosted runners only (public fork), across Linux/macOS/Windows:
+# every job installs its own toolchain; setup only proves the tier reached
+# a usable runner. RUNNER_OS is set by the runner on every platform;
+# nproc does not exist on macOS, so it is not used here.
+test -n "${RUNNER_OS:-}"
+echo "CIFAST_SETUP tier=$1 runner=$RUNNER_OS"
